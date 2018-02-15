@@ -162,4 +162,11 @@ public class TCConfigurationParserTest {
     assertThat(voter, notNullValue());
     assertThat(voter.getCount(), is(2));
   }
+
+  @Test
+  public void testParsePlatformConfigOnly() throws Exception {
+    URL resource = Thread.currentThread().getContextClassLoader().getResource("tc-config-invalid-service.xml");
+    TCConfigurationParser.parse(resource.openStream(), true);
+  }
+
 }

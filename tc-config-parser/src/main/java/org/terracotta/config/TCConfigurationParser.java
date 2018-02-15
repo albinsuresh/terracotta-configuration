@@ -69,18 +69,20 @@ public class TCConfigurationParser {
   private static final Map<URI, ServiceConfigParser> serviceParsers = new HashMap<>();
   private static final Map<URI, ExtendedConfigParser> configParsers = new HashMap<>();
 
-  private static TcConfiguration parseStream(InputStream in, String source, ClassLoader loader) throws IOException, SAXException {
+  private static TcConfiguration parseStream(InputStream in, String source, ClassLoader loader, boolean platformConfigOnly) throws IOException, SAXException {
     Collection<Source> schemaSources = new ArrayList<>();
 
     schemaSources.add(new StreamSource(TERRACOTTA_XML_SCHEMA.openStream()));
 
-    for (ServiceConfigParser parser : loadServiceConfigurationParserClasses(loader)) {
-      schemaSources.add(parser.getXmlSchema());
-      serviceParsers.put(parser.getNamespace(), parser);
-    }
-    for (ExtendedConfigParser parser : loadConfigurationParserClasses(loader)) {
-      schemaSources.add(parser.getXmlSchema());
-      configParsers.put(parser.getNamespace(), parser);
+    if (!platformConfigOnly) {
+      for (ServiceConfigParser parser : loadServiceConfigurationParserClasses(loader)) {
+        schemaSources.add(parser.getXmlSchema());
+        serviceParsers.put(parser.getNamespace(), parser);
+      }
+      for (ExtendedConfigParser parser : loadConfigurationParserClasses(loader)) {
+        schemaSources.add(parser.getXmlSchema());
+        configParsers.put(parser.getNamespace(), parser);
+      }
     }
 
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -235,22 +237,30 @@ public class TCConfigurationParser {
     s.setBind(ParameterSubstitutor.substitute(s.getBind()));
   }
 
-  private static TcConfiguration convert(InputStream in, String path, ClassLoader loader) throws IOException, SAXException {
+  private static TcConfiguration convert(InputStream in, String path, ClassLoader loader, boolean platformConfigOnly) throws IOException, SAXException {
     byte[] data = new byte[in.available()];
     in.read(data);
     in.close();
     ByteArrayInputStream bais = new ByteArrayInputStream(data);
 
-    return parseStream(bais, path, loader);
+    return parseStream(bais, path, loader, platformConfigOnly);
   }
   
   public static TcConfiguration parse(File f)  throws IOException, SAXException {
     return parse(f, Thread.currentThread().getContextClassLoader());
   }
 
+  public static TcConfiguration parse(File f, boolean platformConfigOnly)  throws IOException, SAXException {
+    return parse(f, Thread.currentThread().getContextClassLoader(), platformConfigOnly);
+  }
+
   public static TcConfiguration parse(File file, ClassLoader loader) throws IOException, SAXException {
+    return parse(file, loader, false);
+  }
+
+  public static TcConfiguration parse(File file, ClassLoader loader, boolean platformConfigOnly) throws IOException, SAXException {
     try (FileInputStream in = new FileInputStream(file)) {
-      return convert(in, file.getParent(), loader);
+      return convert(in, file.getParent(), loader, platformConfigOnly);
     }
   }
   
@@ -258,24 +268,48 @@ public class TCConfigurationParser {
     return parse(xmlText, Thread.currentThread().getContextClassLoader());
   }
 
+  public static TcConfiguration parse(String xmlText, boolean platformConfigOnly) throws IOException, SAXException {
+    return parse(xmlText, Thread.currentThread().getContextClassLoader(), platformConfigOnly);
+  }
+
   public static TcConfiguration parse(String xmlText, ClassLoader loader) throws IOException, SAXException {
-    return convert(new ByteArrayInputStream(xmlText.getBytes()), null, loader);
+    return parse(xmlText, loader, false);
+  }
+
+  public static TcConfiguration parse(String xmlText, ClassLoader loader, boolean platformConfigOnly) throws IOException, SAXException {
+    return convert(new ByteArrayInputStream(xmlText.getBytes()), null, loader, platformConfigOnly);
   }
   
   public static TcConfiguration parse(InputStream stream) throws IOException, SAXException {
     return parse(stream, Thread.currentThread().getContextClassLoader());
   }
-  
+
+  public static TcConfiguration parse(InputStream stream, boolean platformConfigOnly) throws IOException, SAXException {
+    return parse(stream, Thread.currentThread().getContextClassLoader(), platformConfigOnly);
+  }
+
   public static TcConfiguration parse(InputStream stream, ClassLoader loader) throws IOException, SAXException {
-    return convert(stream, null, loader);
+    return parse(stream, loader, false);
+  }
+
+  public static TcConfiguration parse(InputStream stream, ClassLoader loader, boolean platformConfigOnly) throws IOException, SAXException {
+    return convert(stream, null, loader, platformConfigOnly);
   }
   
-  public static TcConfiguration parse(URL stream) throws IOException, SAXException {
-    return parse(stream, Thread.currentThread().getContextClassLoader());
+  public static TcConfiguration parse(URL url) throws IOException, SAXException {
+    return parse(url, Thread.currentThread().getContextClassLoader());
   }
-  
+
+  public static TcConfiguration parse(URL url, boolean platformConfigOnly) throws IOException, SAXException {
+    return parse(url, Thread.currentThread().getContextClassLoader(), platformConfigOnly);
+  }
+
   public static TcConfiguration parse(URL url, ClassLoader loader) throws IOException, SAXException {
-    return convert(url.openStream(), url.getPath(), loader);
+    return parse(url, loader, false);
+  }
+
+  public static TcConfiguration parse(URL url, ClassLoader loader, boolean platformConfigOnly) throws IOException, SAXException {
+    return convert(url.openStream(), url.getPath(), loader, platformConfigOnly);
   }
   
   public static TcConfiguration parse(InputStream in, Collection<SAXParseException> errors, String source) throws IOException, SAXException {
@@ -283,7 +317,7 @@ public class TCConfigurationParser {
   }
   
   public static TcConfiguration parse(InputStream in, Collection<SAXParseException> errors, String source, ClassLoader loader) throws IOException, SAXException {
-    return parseStream(in, source, loader);
+    return parseStream(in, source, loader, false);
   }
 
   private static class CollectingErrorHandler implements ErrorHandler {
